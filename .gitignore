@@ -1,0 +1,11 @@
+.venv/
+
+# Claude Code — only local/personal config; ship shared skills + project CLAUDE.md
+.claude/settings.local.json
+.claude/*.local.*
+
+uv.lock
+fl_controller/__pycache__/
+src/fl_studio_mcp/__pycache__/
+src/fl_studio_mcp/tools/__pycache__
+src/fl_studio_mcp/utils/__pycache__
