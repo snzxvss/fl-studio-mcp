@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import json
 import platform
+import time as _time_mod
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from fl_studio_mcp.utils.connection import get_connection
 from fl_studio_mcp.utils.fl_trigger import get_trigger, trigger_fl_studio
 
 if TYPE_CHECKING:
@@ -204,6 +206,89 @@ def register_piano_roll_tools(mcp: FastMCP) -> None:
             note_summary += f", ... ({note_count - 5} more)"
 
         return f"Queued {note_count} note(s): {note_summary}.{trigger_info}"
+
+    @mcp.tool()
+    def fl_send_notes_to_channel(
+        channel_index: int,
+        notes: list[dict],
+        mode: str = "add",
+        auto_trigger: bool = True,
+        focus_delay_ms: int = 200,
+    ) -> str:
+        """Send notes to a SPECIFIC channel's piano roll without manual clicks.
+
+        Combines the MIDI controller bridge (to select the target channel
+        and focus its piano roll) with the piano roll bridge (to write
+        notes via Ctrl+Alt+Y trigger). Use this when you have multiple
+        channels (drums, bass, chords, melody) and want to route each
+        layer to its own channel programmatically.
+
+        Args:
+            channel_index: Global channel index (0-based) — use
+                fl_get_all_channels first to discover indices and names.
+            notes: Same format as fl_send_notes — see that tool for the
+                full list of supported fields (midi, duration, time,
+                velocity, plus extended FL properties pan/color/fcut/
+                fres/slide/porta/pitchofs/muted).
+            mode: "add" (default) or "replace" — applies to the target
+                channel's piano roll.
+            auto_trigger: Whether to send the Ctrl+Alt+Y keystroke (default True).
+            focus_delay_ms: Wait this many milliseconds after focusing the
+                piano roll before triggering the script. Increase if your
+                machine is slow (default 200, range typical 100-500).
+
+        Returns:
+            Status string with channel name and note count, or error message.
+
+        Example workflow:
+            # Discover channels
+            chans = fl_get_all_channels()
+            # Send drums to channel 0 (FPC)
+            fl_send_notes_to_channel(0, drums_notes)
+            # Send bass to channel 5 (808)
+            fl_send_notes_to_channel(5, bass_notes, mode="replace")
+            # Send chords to channel 8 (Pad)
+            fl_send_notes_to_channel(8, chord_notes)
+        """
+        if not notes:
+            return "Error: No notes provided"
+        for i, note in enumerate(notes):
+            if "midi" not in note:
+                return f"Error: Note {i} missing 'midi' field"
+            if "duration" not in note:
+                return f"Error: Note {i} missing 'duration' field"
+            note.setdefault("time", 0)
+            note.setdefault("velocity", 0.8)
+
+        # Step 1: select channel + focus its piano roll via MIDI bridge
+        conn = get_connection()
+        if not conn.is_connected:
+            return f"Error: MIDI bridge not connected ({conn.connection_error}). "\
+                   "Run fl_connect first."
+        result = conn.send_command(
+            "channels.selectAndShowPianoRoll", {"index": channel_index}
+        )
+        if not result.get("success", False):
+            err = result.get("error", "unknown error")
+            return f"Error selecting channel {channel_index}: {err}"
+        channel_name = result.get("channel_name", f"Channel {channel_index}")
+
+        # Step 2: brief wait so FL Studio's UI catches up
+        if focus_delay_ms > 0:
+            _time_mod.sleep(max(0, focus_delay_ms) / 1000.0)
+
+        # Step 3: queue the request and trigger Ctrl+Alt+Y
+        requests = []
+        if mode == "replace":
+            requests.append({"action": "clear"})
+        requests.append({"action": "add_notes", "notes": notes})
+        _write_request(requests)
+
+        trigger_info = _get_trigger_info(auto_trigger)
+        return (
+            f"Sent {len(notes)} note(s) to channel '{channel_name}' "
+            f"(index {channel_index}, mode={mode}).{trigger_info}"
+        )
 
     @mcp.tool()
     def fl_send_chord(

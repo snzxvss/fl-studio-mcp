@@ -77,8 +77,9 @@ The state export already exposes all FL note properties: `number, time, length, 
 | F3    | MIDI transformations (`fl_transpose_notes`, `fl_quantize_notes`, `fl_humanize_notes`, `fl_voice_lead_chords`, `fl_arpeggiate_chord`) | Done |
 | F4    | MIDI I/O (`fl_export_midi`, `fl_import_midi`) using `mido` | Done |
 | F5    | Extended note properties in `fl_send_notes` (pan, color, fcut, fres, slide, porta, pitchofs, muted) — accepted by both MCP and pyscript bridge | Done |
+| F6    | `fl_send_notes_to_channel` — selects channel + focuses its piano roll automatically before triggering, eliminating manual clicks for multi-channel composition. Adds `channels.selectAndShowPianoRoll` to the MIDI controller bridge. | Done |
 
-Total tool count after F0–F5: **73 tools** across 9 modules (transport, mixer, channels, plugins, piano_roll, theory, generators, transforms, midi_io).
+Total tool count after F0–F6: **74 tools** across 9 modules (transport, mixer, channels, plugins, piano_roll, theory, generators, transforms, midi_io).
 
 ## Where to Find Things
 

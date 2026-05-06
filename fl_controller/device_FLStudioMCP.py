@@ -28,6 +28,14 @@ import channels
 import mixer
 import plugins
 import transport
+import ui
+
+# FL Studio window IDs (from official API stubs)
+WIDGET_MIXER = 0
+WIDGET_CHANNEL_RACK = 1
+WIDGET_PLAYLIST = 2
+WIDGET_PIANO_ROLL = 3
+WIDGET_BROWSER = 4
 
 
 def _get_script_dir() -> Path:
@@ -179,6 +187,8 @@ def dispatch_command(action: str, params: dict) -> dict:
         return handle_channels_select(params)
     elif action == "channels.selectOne":
         return handle_channels_select_one(params)
+    elif action == "channels.selectAndShowPianoRoll":
+        return handle_channels_select_and_show_piano_roll(params)
     elif action == "channels.triggerNote":
         return handle_channels_trigger_note(params)
     elif action == "channels.setVolume":
@@ -527,6 +537,25 @@ def handle_channels_select_one(params: dict) -> dict:
     index = params.get("index", 0)
     channels.selectOneChannel(index, True)
     return {"channel_name": channels.getChannelName(index, True)}
+
+
+def handle_channels_select_and_show_piano_roll(params: dict) -> dict:
+    """Select a channel exclusively AND focus its piano roll window.
+
+    Used by fl_send_notes_to_channel to route a piano-roll write to a
+    specific channel without manual clicks. The subsequent Ctrl+Alt+Y
+    keystroke (sent by the MCP server) triggers ComposeWithLLM in the
+    now-focused piano roll, so notes land on the right channel.
+    """
+    index = params.get("index", 0)
+    channels.selectOneChannel(index, True)
+    # Show / focus the Piano Roll. If it was already open, this just refocuses.
+    ui.showWindow(WIDGET_PIANO_ROLL)
+    return {
+        "channel_index": index,
+        "channel_name": channels.getChannelName(index, True),
+        "piano_roll_focused": True,
+    }
 
 
 def handle_channels_trigger_note(params: dict) -> dict:
